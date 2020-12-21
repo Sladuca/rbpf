@@ -81,3 +81,10 @@ pub enum EbpfError<E: UserDefinedError> {
     #[error("unsupported instruction at instruction {0}")]
     UnsupportedInstruction(usize),
 }
+
+/// Debugger-related error definitions
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+pub enum DebugError {
+    #[error("invalid packet {0}")]
+    InvalidPacket(String),
+}
