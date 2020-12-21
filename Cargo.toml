@@ -29,6 +29,7 @@ rand = { version = "0.7.3", features = ["small_rng"]}
 scroll = "0.10.1"
 thiserror = "1.0"
 time = "0.1"
+gdbstub = "0.4.2"
 
 [dev-dependencies]
 elf = "0.0.10"
