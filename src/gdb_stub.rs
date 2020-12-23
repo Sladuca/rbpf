@@ -3,6 +3,7 @@ use gdbstub::target;
 use gdbstub::target::ext::base::singleThread::{ResumeAction, SingleThreadOps, StopReason};
 use gdbstub::target::ext::breakpoints::WatchKind;
 use gdbstub::target::{Target, TargetError, TargetResult};
+use gdbstub::GdbStub;
 use std::collections::HashMap;
 use std::debug_assert;
 use std::net::{TcpListener, TcpStream};
@@ -18,6 +19,35 @@ pub enum DebugTargetString {
     Tcp(String),
     Unix(Box<Path>),
     // * Serial not yet supported
+}
+
+pub fn start_debug_server(
+    port: u16,
+    init_regs: &[u64; 11],
+    init_pc: u64,
+) -> (mpsc::SyncSender<VmReply>, mpsc::Receiver<VmRequest>) {
+    let conn = wait_for_gdb_connection(port).unwrap();
+    let mut (target, tx, rx) = DebugServer::new(init_regs, init_pc);
+    std::thread::spawn(|| move {
+        let mut debugger = GdbStub::new(conn);
+        
+        match debugger.run(&mut target) {
+        Ok(disconnect_reason) => match disconnect_reason {
+            DisconnectReason::Disconnect => println!("GDB client disconnected."),
+            DisconnectReason::TargetHalted => println!("Target halted!"),
+            DisconnectReason::Kill => println!("GDB client sent a kill command!"),
+        },
+        // Handle any target-specific errors
+        Err(GdbStubError::TargetError(e)) => {
+            println!("Target raised a fatal error: {:?}", e);
+            // e.g: re-enter the debugging session after "freezing" a system to
+            // conduct some post-mortem debugging
+            debugger.run(&mut target)?;
+        }
+        Err(e) => return Err(e.into()),
+    }
+    });
+    (tx, rx)
 }
 
 fn wait_for_gdb_connection(port: u16) -> std::io::Result<TcpStream> {
@@ -189,6 +219,8 @@ pub enum VmRequest {
     WriteRegs([u64; 12]),
     ReadMem(usize, usize),
     WriteMem(usize, usize, Vec<u8>),
+    SetBrkpt(usize),
+    RemoveBrkpt(usize),
     Offsets,
 }
 
@@ -204,6 +236,8 @@ pub enum VmReply {
     WriteReg,
     ReadMem(Vec<u8>),
     WriteMem,
+    SetBrkpt,
+    RemoveBrkpt,
     Offsets(Vec<usize>),
 }
 
@@ -237,7 +271,7 @@ impl SingleThreadOps for DebugServer {
                 self.req.send(VmRequest::Interrupt).unwrap();
                 match self.req.recv().unwrap() {
                     VmReply::Interrupt => Ok(StopReason::GdbInterrupt),
-                    Err(e) => Err(e),
+                    Err(e) => Err(e.into()),
                     _ => Err("unexpected reply from vm"),
                 }
             }
@@ -251,7 +285,7 @@ impl SingleThreadOps for DebugServer {
                 *regs = unsafe { std::mem::trasmute_copy(regfile) };
                 Ok(())
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
             _ => Err("unexpected reply from vm"),
         }
     }
@@ -261,7 +295,7 @@ impl SingleThreadOps for DebugServer {
         self.req.send(VmRequest::WriteRegs(regfile)).unwrap();
         match self.reply.recv().unwrap() {
             VmReply::WriteRegs => Ok(()),
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
             _ => Err("unexpected reply from vm"),
         }
     }
@@ -273,7 +307,7 @@ impl SingleThreadOps for DebugServer {
                 dst.copy_from_slice(&val.to_le_bytes());
                 Ok(())
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
             _ => Err("unexpected reply from vm"),
         }
     }
@@ -287,7 +321,7 @@ impl SingleThreadOps for DebugServer {
                 .unwrap();
             match self.reply.recv().unwrap() {
                 VmReply::WriteReg => Ok(()),
-                Err(e) => Err(e),
+                Err(e) => Err(e.into()),
                 _ => Err("unexpected reply from vm"),
             }
         }
@@ -306,7 +340,7 @@ impl SingleThreadOps for DebugServer {
                 dst.copy_from_slice(&bytes[..]);
                 Ok(())
             }
-            Err(e) => Err(e),
+            Err(e) => Err(e.into()),
             _ => Err("unexpected reply from vm"),
         }
     }
@@ -317,8 +351,28 @@ impl SingleThreadOps for DebugServer {
             .unwrap();
         match self.reply.recv().unwrap() {
             VmReply::WriteAddr => Ok(()),
+            Err(e) => Err(e.into()),
+            _ => Err("unexpected reply from vm"),
+        }
+    }
+}
+
+impl target::exp::breakpoints::SwBreakpoint for DebugServer {
+    fn add_sw_breakpoint(&mut self, addr: usize) -> TargetResult<bool, Self> {
+        self.req.send(VmRequest::SetBrkpt(usize)).unwrap();
+        match self.reply.recv().unwrap() {
+            VmReply::SetBrkpt => Ok(()),
             Err(e) => Err(e),
             _ => Err("unexpected reply from vm"),
+        }
+    }
+
+    fn remove_sw_breakpoint(&mut self, addr: usize) -> TargetREsult<bool, Self> {
+        self.req.send(VmRequest::RemoveBrkpt(usize)).unwrap();
+        match self.reply.recv().unwrap() {
+            VmReply::RemoveBrkpt => Ok(),
+            Err(e) => Err(e),
+            _ => Err("unexpect reply from vm"),
         }
     }
 }
