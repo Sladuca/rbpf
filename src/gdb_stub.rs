@@ -1,13 +1,22 @@
-use gdbstub::arch;
-use gdbstub::target;
-use gdbstub::target::ext::base::singleThread::{ResumeAction, SingleThreadOps, StopReason};
-use gdbstub::target::ext::breakpoints::WatchKind;
-use gdbstub::target::{Target, TargetError, TargetResult};
-use gdbstub::GdbStub;
-use std::collections::HashMap;
+use gdbstub::{
+    arch,
+    target::{
+        ext::{
+            base::{
+                singleThread::{Offsets, ResumeAction, SingleThreadOps, StopReason},
+                BaseOps,
+            },
+            breakpoints::SwBreakpoint,
+            section_offsets::{Offsets, SectionOffsets},
+        },
+        Target, TargetError, TargetResult,
+    },
+    DisconnectReason, GdbStub, GdbStubError,
+};
+use std::collections::HashSet;
 use std::debug_assert;
 use std::net::{TcpListener, TcpStream};
-use std::os::Path;
+use std::path::Path;
 use std::sync::mpsc;
 
 const BRPKT_MAP_THRESH: usize = 30;
@@ -15,38 +24,38 @@ const BRPKT_MAP_THRESH: usize = 30;
 const NUM_REGS: usize = 11;
 const REG_NUM_BYTES: usize = NUM_REGS * 8;
 
-pub enum DebugTargetString {
-    Tcp(String),
-    Unix(Box<Path>),
-    // * Serial not yet supported
-}
-
+// TODO make this not use unwrap
+// TODO add support for Unix Domain Sockets
 pub fn start_debug_server(
     port: u16,
     init_regs: &[u64; 11],
     init_pc: u64,
 ) -> (mpsc::SyncSender<VmReply>, mpsc::Receiver<VmRequest>) {
     let conn = wait_for_gdb_connection(port).unwrap();
-    let mut (target, tx, rx) = DebugServer::new(init_regs, init_pc);
-    std::thread::spawn(|| move {
+    let (mut target, tx, rx) = DebugServer::new(init_regs, init_pc);
+
+    std::thread::spawn(move || {
         let mut debugger = GdbStub::new(conn);
-        
+
         match debugger.run(&mut target) {
-        Ok(disconnect_reason) => match disconnect_reason {
-            DisconnectReason::Disconnect => println!("GDB client disconnected."),
-            DisconnectReason::TargetHalted => println!("Target halted!"),
-            DisconnectReason::Kill => println!("GDB client sent a kill command!"),
-        },
-        // Handle any target-specific errors
-        Err(GdbStubError::TargetError(e)) => {
-            println!("Target raised a fatal error: {:?}", e);
-            // e.g: re-enter the debugging session after "freezing" a system to
-            // conduct some post-mortem debugging
-            debugger.run(&mut target)?;
+            Ok(disconnect_reason) => match disconnect_reason {
+                DisconnectReason::Disconnect => println!("GDB client disconnected."),
+                DisconnectReason::TargetHalted => println!("Target halted!"),
+                DisconnectReason::Kill => println!("GDB client sent a kill command!"),
+            },
+            // Handle any target-specific errors
+            Err(GdbStubError::TargetError(e)) => {
+                println!("Target raised a fatal error: {:?}", e);
+                // e.g: re-enter the debugging session after "freezing" a system to
+                // conduct some post-mortem debugging
+                debugger.run(&mut target).unwrap();
+            }
+            Err(e) => {
+                eprintf!("Could not run Target {:?}", e);
+            }
         }
-        Err(e) => return Err(e.into()),
-    }
     });
+
     (tx, rx)
 }
 
@@ -64,41 +73,63 @@ fn wait_for_gdb_connection(port: u16) -> std::io::Result<TcpStream> {
 }
 
 pub enum BreakpointTable {
-    Few(Vec<(usize, i32)>),
-    Many(HashMap<usize, i32>),
+    Few(Vec<usize>),
+    Many(HashSet<usize>),
 }
 
 impl BreakpointTable {
-    pub fn check_brkpt(&self, pc: usize) -> Option<i32> {
+    pub fn new() -> Self {
+        BreakpointTable::Few(Vec::new())
+    }
+
+    pub fn check_breakpoint(&self, addr: usize) -> bool {
         match &*self {
-            BreakpointTable::Few(pairs) => {
-                for (brkpt_addr, brkpt_num) in pairs.iter() {
-                    if *brkpt_addr == pc {
-                        return Some(*brkpt_num);
+            BreakpointTable::Few(addrs) => {
+                for brkpt_addr in addrs.iter() {
+                    if *brkpt_addr == addr {
+                        return true;
                     }
                 }
-                return None;
+                return false;
             }
-            BreakpointTable::Many(map) => map.get(&pc).map(|ptr| *ptr),
+            BreakpointTable::Many(addrs) => addrs.contains(&addr),
         }
     }
 
-    pub fn set_brkpt(&mut self, pc: usize, brkpt_num: i32) {
+    pub fn set_breakpoint(&mut self, addr: usize) {
         match *self {
-            BreakpointTable::Few(ref mut pairs) => {
-                if pairs.len() > BRPKT_MAP_THRESH {
-                    let mut map = HashMap::<usize, i32>::with_capacity(pairs.len() + 1);
-                    map.insert(pc, brkpt_num);
-                    for (pc, brkpt_num) in pairs.iter() {
-                        map.insert(*pc, *brkpt_num);
+            BreakpointTable::Few(ref mut addrs) => {
+                if addrs.len() > BRPKT_MAP_THRESH {
+                    let mut set = HashSet::<usize>::with_capacity(addrs.len() + 1);
+                    set.insert(addr);
+                    for (addr, brkpt_num) in addrs.iter() {
+                        set.insert(*addr);
                     }
-                    *self = BreakpointTable::Many(map);
+                    *self = BreakpointTable::Many(set);
                 } else {
-                    pairs.push((pc, brkpt_num));
+                    pairs.push(addr);
                 }
             }
-            BreakpointTable::Many(ref mut map) => {
-                map.insert(pc, brkpt_num);
+            BreakpointTable::Many(ref mut addrs) => {
+                addrs.insert(addr);
+            }
+        }
+    }
+
+    pub fn remove_breakpoint(&mut self, addr: usize) {
+        match *self {
+            BreakpointTable::Few(ref mut addrs) => {
+                if let Some(i) =
+                    addrs
+                        .iter()
+                        .enumerate()
+                        .find_map(|(i, address)| if *address = addr { Some(i) } else { None })
+                {
+                    addrs.remove(i);
+                }
+            }
+            BreakpointTable::Many(ref mut addrs) => {
+                addrs.remove(&addr);
             }
         }
     }
@@ -121,8 +152,10 @@ impl DebugServer {
             DebugServer {
                 req: req_tx,
                 reply: reply_rx,
-                regs: *regs,
-                pc: pc,
+                regs: BPFRegs {
+                    regs: *regs,
+                    pc: pc,
+                },
             },
             reply_tx,
             req_rx,
@@ -133,13 +166,14 @@ impl DebugServer {
 #[repr(C)]
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct BPFRegs {
-    regs: &'a [u64; 11],
-    pc: &'a u64,
+    regs: [u64; 11],
+    pc: u64,
 }
 
+// TODO use something safer than transmute_copy
 impl Registers for BPFRegs {
     fn gdb_serialize(&self, write_byte: impl FnMut(Option<u8>)) {
-        let bytes: [u8; 12 * 8] = unsafe { std::mem::trasmute_copy(self) };
+        let bytes: [u8; 12 * 8] = unsafe { std::mem::transmute_copy(self) };
         bytes.iter().for_each(write_byte(Some(b)));
     }
 
@@ -147,7 +181,7 @@ impl Registers for BPFRegs {
         if bytes.len() != 12 * 8 {
             Err(())
         } else {
-            let transmuted: Self = unsafe { std::mem::trasmute_copy(bytes) };
+            let transmuted: Self = unsafe { std::mem::transmute_copy(bytes) };
             *self = transmuted;
             Ok(())
         }
@@ -183,24 +217,12 @@ impl Target for DebugServer {
     type Arch = DebugBPF;
     type Error = &'static str;
 
-    fn base_ops(&mut self) -> target::exp::base::BaseOps<Self::Arch, Self::Error> {
+    fn base_ops(&mut self) -> BaseOps<Self::Arch, Self::Error> {
         target::exp::base::BaseOps::SingleThread(self)
     }
 
-    fn sw_breakpoint(&mut self) -> Option<target::ext::breakpoints::SwBreakpointOps<Self>> {
+    fn sw_breakpoint(&mut self) -> Option<SwBreakpointOps<Self>> {
         Some(self)
-    }
-
-    fn hw_watchpoint(&mut self) -> Option<Target::ext::breakpoints::HwWatchpointOps<Self>> {
-        None
-    }
-
-    fn extended_mode(&mut self) -> Option<Target::ext::extended_mode::ExtendedModeOps<Self>> {
-        None
-    }
-
-    fn monitor_cmd(&mut self) -> Option<target::ext::monitor_cmd::MonitorCmdOps<Self>> {
-        None
     }
 
     fn section_offsets(&mut self) -> Option<target::ext::section_offsets::SectionOffsetsOps<Self>> {
@@ -222,6 +244,7 @@ pub enum VmRequest {
     SetBrkpt(usize),
     RemoveBrkpt(usize),
     Offsets,
+    Detatch,
 }
 
 pub enum VmReply {
@@ -238,9 +261,10 @@ pub enum VmReply {
     WriteMem,
     SetBrkpt,
     RemoveBrkpt,
-    Offsets(Vec<usize>),
+    Offsets(Offsets),
 }
 
+// TODO make this not use unwrap
 impl SingleThreadOps for DebugServer {
     fn resume(
         &mut self,
@@ -282,7 +306,7 @@ impl SingleThreadOps for DebugServer {
         self.req.send(VmRequest::ReadRegs).unwrap();
         match self.reply.recv().unwrap() {
             VmReply::ReadRegs(regfile) => {
-                *regs = unsafe { std::mem::trasmute_copy(regfile) };
+                *regs = unsafe { std::mem::transmute_copy(regfile) };
                 Ok(())
             }
             Err(e) => Err(e.into()),
@@ -291,7 +315,7 @@ impl SingleThreadOps for DebugServer {
     }
 
     fn write_registers(&mut self, regs: &BPFRegs) -> TargetResult<(), Self> {
-        let regfile: [u64; 12] = unsafe { std::mem::trasmute_copy(*regs) };
+        let regfile: [u64; 12] = unsafe { std::mem::transmute_copy(*regs) };
         self.req.send(VmRequest::WriteRegs(regfile)).unwrap();
         match self.reply.recv().unwrap() {
             VmReply::WriteRegs => Ok(()),
@@ -357,7 +381,8 @@ impl SingleThreadOps for DebugServer {
     }
 }
 
-impl target::exp::breakpoints::SwBreakpoint for DebugServer {
+// TODO make this not use unwrap
+impl SwBreakpoint for DebugServer {
     fn add_sw_breakpoint(&mut self, addr: usize) -> TargetResult<bool, Self> {
         self.req.send(VmRequest::SetBrkpt(usize)).unwrap();
         match self.reply.recv().unwrap() {
@@ -367,10 +392,22 @@ impl target::exp::breakpoints::SwBreakpoint for DebugServer {
         }
     }
 
-    fn remove_sw_breakpoint(&mut self, addr: usize) -> TargetREsult<bool, Self> {
+    fn remove_sw_breakpoint(&mut self, addr: usize) -> TargetResult<bool, Self> {
         self.req.send(VmRequest::RemoveBrkpt(usize)).unwrap();
         match self.reply.recv().unwrap() {
             VmReply::RemoveBrkpt => Ok(),
+            Err(e) => Err(e),
+            _ => Err("unexpect reply from vm"),
+        }
+    }
+}
+
+// TODO make this not use unwrap
+impl SectionOffsets for DebugServer {
+    fn get_section_offsets(&mut self) -> Result<Offsets<usize>, Self::Error> {
+        self.req.send(VmRequest::Offsets).unwrap();
+        match self.reply.recv().unwrap() {
+            VmReply::Offsets(offsets) => Ok(Offsets),
             Err(e) => Err(e),
             _ => Err("unexpect reply from vm"),
         }

@@ -19,8 +19,16 @@ use crate::{
     memory_region::{AccessType, MemoryMapping, MemoryRegion},
     user_error::UserError,
 };
+
 use log::debug;
 use std::{collections::HashMap, fmt::Debug, u32};
+
+#[cfg(feature = "debug")]
+use crate::gdb_stub::{start_debug_server, VmReply, VmRequest};
+#[cfg(feature = "debug")]
+use std::sync::mpsc;
+#[cfg(feature = "debug")]
+use gdstub::target::ext::singleThread::{ResumeAction, SingleThreadOps, StopReason, Offsets};
 
 /// eBPF verification function that returns an error if the program does not meet its requirements.
 ///
@@ -581,6 +589,36 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         result
     }
 
+    // TODO make this not use unwrap
+    // ! this will ignore everything and just run to completion if the debugger crashes and/or drops its channels 
+    #[cfg(feature = "debug")]
+    fn handle_dbg_request(block: bool, reply: mpsc::SyncSender<VmReply>, req: mpsc::Receiver<VmRequest>, breakpoints: &mut BreakpointTable, step: &mut bool) {
+        let request = if block { req.recv() } else { req.try_recv() };
+        if let Ok(request) = request {
+            match request {
+                VmRequest::Resume => {}
+                VmRequest::Interrupt => {
+                    reply.send(VmReply::Interrupt).unwrap();
+                    handle_dbg_request(true, reply, req, req);
+                }
+                VmRequest::Step => {
+                    *step = true;
+                }
+                VmRequest::SetBrkpt(addr) =>  {
+                    breakpoints.set_breakpoint(addr);
+                    reply.send(VmReply::SetBrkpt).unwrap();
+                }
+                VmRequest::RemoveBrkpt(addr) => {
+                    breakpoints.remove_breakpoint(addr);
+                }
+                VmRequest::Offsets => {}
+                _ => {
+                    tx.send(VmReply::Err("unimplemented")).unwrap();
+                }
+            }
+        }
+    }
+
     #[rustfmt::skip]
     fn execute_program_interpreted_inner(
         &mut self,
@@ -602,11 +640,30 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         // Loop on instructions
         let entry = self.executable.get_entrypoint_instruction_offset()?;
         let mut next_pc: usize = entry;
+
+        #[cfg(feature = "debug")]
+        let mut dbg_interface = (start_debug_server(10000, &reg, next_pc), BreakpointTable::new());
+
+        #[cfg(feature = "debug")]
+        let mut step = false;
+
         let mut remaining_insn_count = if instruction_meter_enabled { instruction_meter.get_remaining() } else { 0 };
         let initial_insn_count = remaining_insn_count;
         self.last_insn_count = 0;
         while next_pc * ebpf::INSN_SIZE + ebpf::INSN_SIZE <= self.program.len() {
             let pc = next_pc;
+
+            #[cfg(feature = "debug")]
+            {
+                let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
+                if step {
+                    step = false;
+                    handle_debug_request(true, reply, req, breakpoints, &mut step);
+                } else {
+                    handle_debug_request(false, reply, req, breakpoints, &mut step);
+                }
+            }
+
             next_pc += 1;
             let insn = ebpf::get_insn_unchecked(self.program, pc);
             let dst = insn.dst as usize;
@@ -925,6 +982,14 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
                 return Err(EbpfError::ExceededMaxInstructions(pc + 1 + ebpf::ELF_INSN_DUMP_OFFSET, initial_insn_count));
             }
         }
+
+        // TODO make this not use unwrap
+        #[cfg(feature = "debug")]
+        {
+            let ((ref mut reply, _), _) = dbg_interface;
+            reply.send(VmReply::Halted).unwrap();
+        }
+
 
         Err(EbpfError::ExecutionOverrun(
             next_pc + ebpf::ELF_INSN_DUMP_OFFSET,

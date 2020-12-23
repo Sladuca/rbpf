@@ -38,3 +38,6 @@ pub mod syscalls;
 pub mod user_error;
 pub mod verifier;
 pub mod vm;
+
+#[cfg(feature = "debug")]
+mod gdb_stub;
