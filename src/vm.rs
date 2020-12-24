@@ -24,11 +24,13 @@ use log::debug;
 use std::{collections::HashMap, fmt::Debug, u32};
 
 #[cfg(feature = "debug")]
-use crate::gdb_stub::{start_debug_server, VmReply, VmRequest};
+use crate::gdb_stub::{start_debug_server, BreakpointTable, VmReply, VmRequest};
+#[cfg(feature = "debug")]
+use gdbstub::target::ext::base::singlethread::{ResumeAction, SingleThreadOps, StopReason};
+#[cfg(feature = "debug")]
+use gdbstub::target::ext::section_offsets::Offsets;
 #[cfg(feature = "debug")]
 use std::sync::mpsc;
-#[cfg(feature = "debug")]
-use gdstub::target::ext::singleThread::{ResumeAction, SingleThreadOps, StopReason, Offsets};
 
 /// eBPF verification function that returns an error if the program does not meet its requirements.
 ///
@@ -590,30 +592,75 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
     }
 
     // TODO make this not use unwrap
-    // ! this will ignore everything and just run to completion if the debugger crashes and/or drops its channels 
     #[cfg(feature = "debug")]
-    fn handle_dbg_request(block: bool, reply: mpsc::SyncSender<VmReply>, req: mpsc::Receiver<VmRequest>, breakpoints: &mut BreakpointTable, step: &mut bool) {
-        let request = if block { req.recv() } else { req.try_recv() };
-        if let Ok(request) = request {
-            match request {
-                VmRequest::Resume => {}
-                VmRequest::Interrupt => {
-                    reply.send(VmReply::Interrupt).unwrap();
-                    handle_dbg_request(true, reply, req, req);
-                }
-                VmRequest::Step => {
-                    *step = true;
-                }
-                VmRequest::SetBrkpt(addr) =>  {
-                    breakpoints.set_breakpoint(addr);
-                    reply.send(VmReply::SetBrkpt).unwrap();
-                }
-                VmRequest::RemoveBrkpt(addr) => {
-                    breakpoints.remove_breakpoint(addr);
-                }
-                VmRequest::Offsets => {}
-                _ => {
-                    tx.send(VmReply::Err("unimplemented")).unwrap();
+    fn handle_dbg_request(
+        &mut self,
+        request: VmRequest,
+        reply: &mut mpsc::SyncSender<VmReply>,
+        req: &mut mpsc::Receiver<VmRequest>,
+        breakpoints: &mut BreakpointTable,
+        step: &mut bool,
+    ) {
+        match request {
+            VmRequest::Resume => {}
+            VmRequest::Interrupt => {
+                reply.send(VmReply::Interrupt).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step);
+            }
+            VmRequest::Step => {
+                *step = true;
+            }
+            VmRequest::SetBrkpt(addr) => {
+                breakpoints.set_breakpoint(addr);
+                reply.send(VmReply::SetBrkpt).unwrap();
+            }
+            VmRequest::RemoveBrkpt(addr) => {
+                breakpoints.remove_breakpoint(addr);
+            }
+            VmRequest::Offsets => {
+                let res = match self.executable.get_text_bytes() {
+                    Ok(text) => {
+                        let (text, _) = text;
+                        VmReply::Offsets(Offsets::Segments {
+                            text_seg: text,
+                            data_seg: None,
+                        })
+                    }
+                    Err(_) => VmReply::Err("could not fetch offsets")
+                };
+                reply.send(res).unwrap();
+            }
+            _ => {
+                reply.send(VmReply::Err("unimplemented")).unwrap();
+            }
+        }
+    }
+
+    // TODO make this not use unwrap
+    #[cfg(feature = "debug")]
+    fn check_for_dbg_request(
+        &mut self,
+        block: bool,
+        reply: &mut mpsc::SyncSender<VmReply>,
+        req: &mut mpsc::Receiver<VmRequest>,
+        breakpoints: &mut BreakpointTable,
+        step: &mut bool,
+    ) {
+
+        if block {
+            if let Ok(request) = req.recv() {
+                self.handle_dbg_request(request, reply, req, breakpoints, step);
+            } else {
+                eprintln!("debugger detatched from VM");
+                std::process::exit(1);
+            }
+        } else {
+            match req.try_recv() {
+                Ok(request) => self.handle_dbg_request(request, reply, req, breakpoints, step),
+                Err(mpsc::TryRecvError::Empty) => {},
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    eprintln!("debugger detatched from VM");
+                    std::process::exit(1);
                 }
             }
         }
@@ -642,7 +689,7 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         let mut next_pc: usize = entry;
 
         #[cfg(feature = "debug")]
-        let mut dbg_interface = (start_debug_server(10000, &reg, next_pc), BreakpointTable::new());
+        let mut dbg_interface = (start_debug_server(10000, &reg, next_pc as u64), BreakpointTable::new());
 
         #[cfg(feature = "debug")]
         let mut step = false;
@@ -653,14 +700,18 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         while next_pc * ebpf::INSN_SIZE + ebpf::INSN_SIZE <= self.program.len() {
             let pc = next_pc;
 
+            // TODO make this not use unwrap()
             #[cfg(feature = "debug")]
             {
                 let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
                 if step {
                     step = false;
-                    handle_debug_request(true, reply, req, breakpoints, &mut step);
+                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step);
+                } else if breakpoints.check_breakpoint(pc as u64) {
+                    reply.send(VmReply::Breakpoint).unwrap();
+                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step);
                 } else {
-                    handle_debug_request(false, reply, req, breakpoints, &mut step);
+                    self.check_for_dbg_request(false, reply, req, breakpoints, &mut step);
                 }
             }
 
