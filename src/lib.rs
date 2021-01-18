@@ -31,7 +31,7 @@ pub mod ebpf;
 pub mod elf;
 pub mod error;
 pub mod fuzz;
-mod gdb_server;
+mod gdb_stub;
 pub mod insn_builder;
 mod jit;
 pub mod memory_region;

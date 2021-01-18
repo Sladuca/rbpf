@@ -22,6 +22,9 @@ use crate::{
 
 use log::debug;
 use std::{collections::HashMap, fmt::Debug, u32};
+use crate::gdb_stub::{NUM_REGS, VmReply, VmRequest, BreakpointTable, start_debug_server};
+use gdbstub::target::ext::section_offsets::Offsets;
+use std::sync::mpsc;
 
 #[cfg(feature = "debug")]
 use crate::gdb_stub::{start_debug_server, BreakpointTable, VmReply, VmRequest};
@@ -186,6 +189,9 @@ pub struct Config {
     pub enable_instruction_meter: bool,
     /// Enable instruction tracing
     pub enable_instruction_tracing: bool,
+    /// Enable GDB stub serve. Setting this for an `Executable` will cause the
+    /// VM to block until it receives a connection from an instance of GDB.
+    pub enable_debugger: bool
 }
 impl Default for Config {
     fn default() -> Self {
@@ -194,6 +200,7 @@ impl Default for Config {
             stack_frame_size: 4_096,
             enable_instruction_meter: true,
             enable_instruction_tracing: false,
+            enable_debugger: false,
         }
     }
 }
@@ -594,7 +601,6 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
     }
 
     // TODO make this not use unwrap
-    #[cfg(feature = "debug")]
     fn handle_dbg_request(
         &mut self,
         request: VmRequest,
@@ -604,7 +610,6 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         step: &mut bool,
         reg: &mut [u64],
     ) {
-        use crate::gdb_stub::NUM_REGS;
 
         match request {
             VmRequest::Resume => {}
@@ -714,7 +719,6 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
     }
 
     // TODO make this not use unwrap
-    #[cfg(feature = "debug")]
     fn check_for_dbg_request(
         &mut self,
         block: bool,
@@ -761,63 +765,59 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         // Check config outside of the instruction loop
         let instruction_meter_enabled = self.executable.get_config().enable_instruction_meter;
         let instruction_tracing_enabled = self.executable.get_config().enable_instruction_tracing;
+        let debugger_enabled = self.executable.get_config().enable_debugger;
 
         // Loop on instructions
         let entry = self.executable.get_entrypoint_instruction_offset()?;
         let mut next_pc: usize = entry;
 
-        #[cfg(feature = "debug")]
-        let mut dbg_interface = (start_debug_server(10000, &reg, next_pc as u64), BreakpointTable::new());
+        let mut dbg_interface = if debugger_enabled { Some((start_debug_server(10000, &reg, next_pc as u64), BreakpointTable::new())) } else { None };
         println!("debug server started");
 
-        #[cfg(feature = "debug")]
         let mut step = false;
-        #[cfg(feature = "debug")]
         let mut first_insn = true;
-
-        #[cfg(feature = "debug")]
-        {
-            let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
-        }
 
         let mut remaining_insn_count = if instruction_meter_enabled { instruction_meter.get_remaining() } else { 0 };
         let initial_insn_count = remaining_insn_count;
         self.last_insn_count = 0;
         while next_pc * ebpf::INSN_SIZE + ebpf::INSN_SIZE <= self.program.len() {
-            // TODO make this not use unwrap()
-            println!("pc: {}", next_pc);
-            #[cfg(feature = "debug")]
-            {
-                let mut pc_changed = false;
-                let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
-                if first_insn {
-                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
-                    first_insn = false;
-                } else if step {
-                    step = false;
-                    reply.send(VmReply::DoneStep).unwrap();
-                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
-                } else if breakpoints.check_breakpoint(next_pc as u64) {
-                    reply.send(VmReply::Breakpoint).unwrap();
-                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
-                } else {
-                    self.check_for_dbg_request(false, reply, req, breakpoints, &mut step, &mut reg);
-                }
-            }
 
             let pc = next_pc;
 
             next_pc += 1;
+
             let insn = ebpf::get_insn_unchecked(self.program, pc);
             let dst = insn.dst as usize;
             let src = insn.src as usize;
             self.last_insn_count += 1;
 
+
+            
             if instruction_tracing_enabled {
                 let mut state = [0u64; 12];
                 state[0..11].copy_from_slice(&reg);
                 state[11] = pc as u64;
                 self.tracer.trace(state);
+            }
+            if let Some(ref mut dbg_interface) = dbg_interface {
+                // TODO make this not use unwrap()
+                println!("pc: {}", pc);
+                {
+                    let ((ref mut reply, ref mut req), ref mut breakpoints) = *dbg_interface;
+                    if first_insn {
+                        self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
+                        first_insn = false;
+                    } else if step {
+                        step = false;
+                        reply.send(VmReply::DoneStep).unwrap();
+                        self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
+                    } else if breakpoints.check_breakpoint(pc as u64) {
+                        reply.send(VmReply::Breakpoint).unwrap();
+                        self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
+                    } else {
+                        self.check_for_dbg_request(false, reply, req, breakpoints, &mut step, &mut reg);
+                    }
+                }
             }
 
             match insn.opc {
@@ -1127,8 +1127,7 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         }
 
         // TODO make this not use unwrap
-        #[cfg(feature = "debug")]
-        {
+        if let Some(mut dbg_interface) = dbg_interface {
             let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
             reply.send(VmReply::Halted).unwrap();
             self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
