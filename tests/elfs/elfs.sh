@@ -3,7 +3,7 @@
 # Requires Latest release of Solana's custom LLVM
 #https://github.com/solana-labs/llvm-builder/releases
 
-LLVM_DIR=../../../solana/sdk/bpf/dependencies/llvm-native/bin/
+LLVM_DIR=/Users/sladuca/solana-llvm-builder/osx/out/deploy/bin/
 
 "$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o noop.o -c noop.c
 "$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -o noop.so noop.o
@@ -38,3 +38,8 @@ rm scratch_registers.o
 "$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o pass_stack_reference.o -c pass_stack_reference.c
 "$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -entry entrypoint -o pass_stack_reference.so pass_stack_reference.o
 rm pass_stack_reference.o
+
+
+# "$LLVM_DIR"clang -Werror -g -target bpf -O2 -fno-builtin -fPIC -v -Xclang -target-feature -Xclang +dwarfris -o binarysearch.o -c binarysearch.c
+"$LLVM_DIR"clang -Werror -g -target bpf -O2 -fno-builtin -fPIC -v -o binarysearch.o -c binarysearch.c
+"$LLVM_DIR"ld.lld -z notext -shared --verbose --Bdynamic -entry entrypoint -o binarysearch.so binarysearch.o

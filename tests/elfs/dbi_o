@@ -1,0 +1,290 @@
+compunit_hdr:
+61 01 00 00 // length
+04 00 // version
+00 00 00 00 // debug_abbrev_offset
+08 // address_size
+DIE 1:
+01 // abbrev_index
+00 00 00 00 // offset in debug_str
+0c 00 // 2-byte constant
+b3 00 00 00 // offset in debug_str
+00 00 00 00 // offset in debug_line
+c2 00 00 00 // offset in debug_str
+00 00 00 00 00 00 00 00 // addr
+d0 01 00 00 // 4 LSB of hi-pc
+  DIE 2:
+  02 // abbrev_index
+  35 00 00 00 // offset from first byte of current compunit's hdr
+  f3 00 00 00 // offset in debug_str
+  01 // offset in debug_line
+  02 // offset in debug_line
+  DIE: 3
+  03 // abbrev_index
+  e1 00 00 00 // offset in debug_str
+  07 // constant
+  08 // byte_size
+  DIE: 4
+  04 // abbrev_index
+  00 00 00 00 00 00 00 00 // addr
+  d0 00 00 00 // 4 LSB of hi-pc
+  01 5a // dwarf expr len 1: DW_OP_reg10
+  7d 00 00 00 // offset for abstract_origin
+    DIE 5:
+    05 // abbrev_index 
+    00 00 00 00 // offset in debug_loc
+    89 00 00 00 // offset for abstract_origin
+    DIE 6:
+    05 // abbrev_index
+    a2 00 00 00 // offset in debug_loc
+    94 00 00 00 // offset for abstract_origin
+    DIE 7:
+    05 // abbrev_index
+    6c 00 00 00 // offset in debug_loc
+    9f 00 00 00 // offset for abstract_origin
+    DIE 8:
+    05 // abbrev_index
+    49 00 00 00 // offset in debug_loc
+    aa 00 00 00 // offset for abstract_origin
+    DIE 9:
+    06 // abbrev_index
+    d8 00 00 00 // offset in debug_loc
+    b5 00 00 00 // offset for abstract_origin
+    00 // end siblings
+  DIE 10:
+  07 // abbrev_index
+  fc 00 00 00 // offset in debug_str
+  01 // offset in debug_line
+  04 // offset in debug_line
+  // flag implicitly marked as present  
+  c1 00 00 00 // offset from first byte of current compunit's hdr
+  // flag implicitly marked as present
+  01 // constant: inlined by the compiler
+  DIE 11:
+  08 // abbrev_index
+  20 01 00 00 // offset in debug_str
+  01 // offset in debug_line
+  04 // offset in debug_line
+  c1 00 00 00 // offset from first byte of current compunit's hdr
+  DIE 12:
+  08 // abbrev_index
+  26 01 00 00 // offset in debug_str
+  01 // offset in debug_line
+  04 // offset in debug_line
+  2a 00 00 00 // offset from first byte of current compunit's hdr
+08
+29
+01
+00
+00
+01
+04
+2a
+00
+00
+00
+08
+2c
+01
+00
+00
+01
+04
+c6
+00
+00
+00
+09
+31
+01
+00
+00
+01
+10
+2a
+00
+00
+00
+00
+0a
+c6
+00
+00
+00
+02
+d1
+00
+00
+00
+18
+01
+00
+00
+01
+01
+03
+0a
+01
+00
+00
+08
+01
+0b
+00
+00
+00
+00
+00
+00
+00
+00
+00
+01
+00
+00
+01
+5a
+35
+01
+00
+00
+01
+1c
+2a
+00
+00
+00
+0c
+fb
+00
+00
+00
+40
+01
+00
+00
+01
+1c
+47
+01
+00
+00
+09
+20
+01
+00
+00
+01
+1e
+51
+01
+00
+00
+09
+5a
+01
+00
+00
+01
+20
+c1
+00
+00
+00
+0d
+7d
+00
+00
+00
+00
+00
+00
+00
+01
+20
+05
+b0
+01
+00
+00
+89
+00
+00
+00
+05
+67
+01
+00
+00
+94
+00
+00
+00
+05
+1e
+01
+00
+00
+9f
+00
+00
+00
+06
+d3
+01
+00
+00
+b5
+00
+00
+00
+00
+00
+0a
+4c
+01
+00
+00
+0e
+c6
+00
+00
+00
+0f
+c6
+00
+00
+00
+10
+5d
+01
+00
+00
+1b
+00
+11
+46
+01
+00
+00
+08
+07
+00
+00
+01
+00
+00
+00
+00
+00
+00
+78
+01
+00
+00
+00
+00
+00
+00
+90
+01
+00

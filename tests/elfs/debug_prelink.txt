@@ -1,0 +1,436 @@
+Contents of the .debug_str section:
+
+  0x00000000 636c616e 67207665 7273696f 6e20382e clang version 8.
+  0x00000010 302e3020 28687474 70733a2f 2f676974 0.0 (https://git
+  0x00000020 6875622e 636f6d2f 536c6164 7563612f hub.com/Sladuca/
+  0x00000030 636c616e 672e6769 74203936 62323661 clang.git 96b26a
+  0x00000040 38316630 64363030 61386632 30643537 81f0d600a8f20d57
+  0x00000050 39316439 62313136 30346235 39666233 91d9b11604b59fb3
+  0x00000060 63322920 28687474 70733a2f 2f676974 c2) (https://git
+  0x00000070 6875622e 636f6d2f 536c6164 7563612f hub.com/Sladuca/
+  0x00000080 6c6c766d 2e676974 20306637 64646335 llvm.git 0f7ddc5
+  0x00000090 66333139 66623930 35643236 39333235 f319fb905d269325
+  0x000000a0 61653834 32373630 39373064 66326166 ae842760970df2af
+  0x000000b0 62290062 696e6172 79736561 7263682e b).binarysearch.
+  0x000000c0 63002f55 73657273 2f736c61 64756361 c./Users/sladuca
+  0x000000d0 2f726270 662f7465 7374732f 656c6673 /rbpf/tests/elfs
+  0x000000e0 006c6f6e 6720756e 7369676e 65642069 .long unsigned i
+  0x000000f0 6e740075 696e7436 345f7400 62696e61 nt.uint64_t.bina
+  0x00000100 72795f73 65617263 6800756e 7369676e ry_search.unsign
+  0x00000110 65642063 68617200 75696e74 385f7400 ed char.uint8_t.
+  0x00000120 61727261 79006c6f 00686900 6974656d array.lo.hi.item
+  0x00000130 006d6964 00656e74 7279706f 696e7400 .mid.entrypoint.
+  0x00000140 696e7075 74005f5f 41525241 595f5349 input.__ARRAY_SI
+  0x00000150 5a455f54 5950455f 5f007265 7300     ZE_TYPE__.res.
+
+readelf: Warning: unable to apply unsupported reloc type 10 to section .debug_info
+readelf: Warning: unable to apply unsupported reloc type 1 to section .debug_info
+readelf: Warning: unable to apply unsupported reloc type 10 to section .debug_info
+readelf: Warning: unable to apply unsupported reloc type 1 to section .debug_info
+readelf: Warning: unable to apply unsupported reloc type 10 to section .debug_info
+readelf: Warning: unable to apply unsupported reloc type 1 to section .debug_info
+readelf: Warning: unable to apply unsupported reloc type 10 to section .debug_info
+Contents of the .debug_loc section:
+
+    Offset   Begin            End              Expression
+    00000000 0000000000000000 0000000000000008 (DW_OP_reg1 (r1))
+    00000013 0000000000000008 0000000000000070 (DW_OP_reg0 (r0))
+    00000026 0000000000000090 00000000000000c8 (DW_OP_reg0 (r0))
+    00000039 <End of list>
+readelf: Warning: There are 429 unused bytes at the end of section .debug_loc
+
+Contents of the .debug_abbrev section:
+
+  Number TAG (0x0)
+   1      DW_TAG_compile_unit    [has children]
+    DW_AT_producer     DW_FORM_strp
+    DW_AT_language     DW_FORM_data2
+    DW_AT_name         DW_FORM_strp
+    DW_AT_stmt_list    DW_FORM_sec_offset
+    DW_AT_comp_dir     DW_FORM_strp
+    DW_AT_low_pc       DW_FORM_addr
+    DW_AT_high_pc      DW_FORM_data4
+    DW_AT value: 0     DW_FORM value: 0
+   2      DW_TAG_typedef    [no children]
+    DW_AT_type         DW_FORM_ref4
+    DW_AT_name         DW_FORM_strp
+    DW_AT_decl_file    DW_FORM_data1
+    DW_AT_decl_line    DW_FORM_data1
+    DW_AT value: 0     DW_FORM value: 0
+   3      DW_TAG_base_type    [no children]
+    DW_AT_name         DW_FORM_strp
+    DW_AT_encoding     DW_FORM_data1
+    DW_AT_byte_size    DW_FORM_data1
+    DW_AT value: 0     DW_FORM value: 0
+   4      DW_TAG_subprogram    [has children]
+    DW_AT_low_pc       DW_FORM_addr
+    DW_AT_high_pc      DW_FORM_data4
+    DW_AT_frame_base   DW_FORM_exprloc
+    DW_AT_abstract_origin DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   5      DW_TAG_formal_parameter    [no children]
+    DW_AT_location     DW_FORM_sec_offset
+    DW_AT_abstract_origin DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   6      DW_TAG_variable    [no children]
+    DW_AT_location     DW_FORM_sec_offset
+    DW_AT_abstract_origin DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   7      DW_TAG_subprogram    [has children]
+    DW_AT_name         DW_FORM_strp
+    DW_AT_decl_file    DW_FORM_data1
+    DW_AT_decl_line    DW_FORM_data1
+    DW_AT_prototyped   DW_FORM_flag_present
+    DW_AT_type         DW_FORM_ref4
+    DW_AT_external     DW_FORM_flag_present
+    DW_AT_inline       DW_FORM_data1
+    DW_AT value: 0     DW_FORM value: 0
+   8      DW_TAG_formal_parameter    [no children]
+    DW_AT_name         DW_FORM_strp
+    DW_AT_decl_file    DW_FORM_data1
+    DW_AT_decl_line    DW_FORM_data1
+    DW_AT_type         DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   9      DW_TAG_variable    [no children]
+    DW_AT_name         DW_FORM_strp
+    DW_AT_decl_file    DW_FORM_data1
+    DW_AT_decl_line    DW_FORM_data1
+    DW_AT_type         DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   10      DW_TAG_pointer_type    [no children]
+    DW_AT_type         DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   11      DW_TAG_subprogram    [has children]
+    DW_AT_low_pc       DW_FORM_addr
+    DW_AT_high_pc      DW_FORM_data4
+    DW_AT_frame_base   DW_FORM_exprloc
+    DW_AT_name         DW_FORM_strp
+    DW_AT_decl_file    DW_FORM_data1
+    DW_AT_decl_line    DW_FORM_data1
+    DW_AT_prototyped   DW_FORM_flag_present
+    DW_AT_type         DW_FORM_ref4
+    DW_AT_external     DW_FORM_flag_present
+    DW_AT value: 0     DW_FORM value: 0
+   12      DW_TAG_formal_parameter    [no children]
+    DW_AT_location     DW_FORM_sec_offset
+    DW_AT_name         DW_FORM_strp
+    DW_AT_decl_file    DW_FORM_data1
+    DW_AT_decl_line    DW_FORM_data1
+    DW_AT_type         DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   13      DW_TAG_inlined_subroutine    [has children]
+    DW_AT_abstract_origin DW_FORM_ref4
+    DW_AT_ranges       DW_FORM_sec_offset
+    DW_AT_call_file    DW_FORM_data1
+    DW_AT_call_line    DW_FORM_data1
+    DW_AT value: 0     DW_FORM value: 0
+   14      DW_TAG_const_type    [no children]
+    DW_AT_type         DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   15      DW_TAG_array_type    [has children]
+    DW_AT_type         DW_FORM_ref4
+    DW_AT value: 0     DW_FORM value: 0
+   16      DW_TAG_subrange_type    [no children]
+    DW_AT_type         DW_FORM_ref4
+    DW_AT_count        DW_FORM_data1
+    DW_AT value: 0     DW_FORM value: 0
+   17      DW_TAG_base_type    [no children]
+    DW_AT_name         DW_FORM_strp
+    DW_AT_byte_size    DW_FORM_data1
+    DW_AT_encoding     DW_FORM_data1
+    DW_AT value: 0     DW_FORM value: 0
+
+Contents of the .debug_info section:
+
+  Compilation Unit @ offset 0x0:
+   Length:        0x161 (32-bit)
+   Version:       4
+   Abbrev Offset: 0x0
+   Pointer Size:  8
+ <0><b>: Abbrev Number: 1 (DW_TAG_compile_unit)
+    <c>   DW_AT_producer    : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <10>   DW_AT_language    : 12	(ANSI C99)
+    <12>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <16>   DW_AT_stmt_list   : 0x0
+    <1a>   DW_AT_comp_dir    : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <1e>   DW_AT_low_pc      : 0x0
+    <26>   DW_AT_high_pc     : 0x1d0
+ <1><2a>: Abbrev Number: 2 (DW_TAG_typedef)
+    <2b>   DW_AT_type        : <0x35>
+    <2f>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <33>   DW_AT_decl_file   : 1
+    <34>   DW_AT_decl_line   : 2
+ <1><35>: Abbrev Number: 3 (DW_TAG_base_type)
+    <36>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <3a>   DW_AT_encoding    : 7	(unsigned)
+    <3b>   DW_AT_byte_size   : 8
+ <1><3c>: Abbrev Number: 4 (DW_TAG_subprogram)
+    <3d>   DW_AT_low_pc      : 0x0
+    <45>   DW_AT_high_pc     : 0xd0
+    <49>   DW_AT_frame_base  : 1 byte block: 5a 	(DW_OP_reg10 (r10))
+    <4b>   DW_AT_abstract_origin: <0x7d>
+ <2><4f>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <50>   DW_AT_location    : 0x0 (location list)
+    <54>   DW_AT_abstract_origin: <0x89>
+ <2><58>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <59>   DW_AT_location    : 0x0 (location list)
+    <5d>   DW_AT_abstract_origin: <0x94>
+ <2><61>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <62>   DW_AT_location    : 0x0 (location list)
+    <66>   DW_AT_abstract_origin: <0x9f>
+ <2><6a>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <6b>   DW_AT_location    : 0x0 (location list)
+    <6f>   DW_AT_abstract_origin: <0xaa>
+ <2><73>: Abbrev Number: 6 (DW_TAG_variable)
+    <74>   DW_AT_location    : 0x0 (location list)
+    <78>   DW_AT_abstract_origin: <0xb5>
+ <2><7c>: Abbrev Number: 0
+ <1><7d>: Abbrev Number: 7 (DW_TAG_subprogram)
+    <7e>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <82>   DW_AT_decl_file   : 1
+    <83>   DW_AT_decl_line   : 4
+    <84>   DW_AT_prototyped  : 1
+    <84>   DW_AT_type        : <0xc1>
+    <88>   DW_AT_external    : 1
+    <88>   DW_AT_inline      : 1	(inlined)
+ <2><89>: Abbrev Number: 8 (DW_TAG_formal_parameter)
+    <8a>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <8e>   DW_AT_decl_file   : 1
+    <8f>   DW_AT_decl_line   : 4
+    <90>   DW_AT_type        : <0xc1>
+ <2><94>: Abbrev Number: 8 (DW_TAG_formal_parameter)
+    <95>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <99>   DW_AT_decl_file   : 1
+    <9a>   DW_AT_decl_line   : 4
+    <9b>   DW_AT_type        : <0x2a>
+ <2><9f>: Abbrev Number: 8 (DW_TAG_formal_parameter)
+    <a0>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <a4>   DW_AT_decl_file   : 1
+    <a5>   DW_AT_decl_line   : 4
+    <a6>   DW_AT_type        : <0x2a>
+ <2><aa>: Abbrev Number: 8 (DW_TAG_formal_parameter)
+    <ab>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <af>   DW_AT_decl_file   : 1
+    <b0>   DW_AT_decl_line   : 4
+    <b1>   DW_AT_type        : <0xc6>
+ <2><b5>: Abbrev Number: 9 (DW_TAG_variable)
+    <b6>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <ba>   DW_AT_decl_file   : 1
+    <bb>   DW_AT_decl_line   : 16
+    <bc>   DW_AT_type        : <0x2a>
+ <2><c0>: Abbrev Number: 0
+ <1><c1>: Abbrev Number: 10 (DW_TAG_pointer_type)
+    <c2>   DW_AT_type        : <0xc6>
+ <1><c6>: Abbrev Number: 2 (DW_TAG_typedef)
+    <c7>   DW_AT_type        : <0xd1>
+    <cb>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <cf>   DW_AT_decl_file   : 1
+    <d0>   DW_AT_decl_line   : 1
+ <1><d1>: Abbrev Number: 3 (DW_TAG_base_type)
+    <d2>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <d6>   DW_AT_encoding    : 8	(unsigned char)
+    <d7>   DW_AT_byte_size   : 1
+ <1><d8>: Abbrev Number: 11 (DW_TAG_subprogram)
+    <d9>   DW_AT_low_pc      : 0x0
+    <e1>   DW_AT_high_pc     : 0x100
+    <e5>   DW_AT_frame_base  : 1 byte block: 5a 	(DW_OP_reg10 (r10))
+    <e7>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <eb>   DW_AT_decl_file   : 1
+    <ec>   DW_AT_decl_line   : 28
+    <ed>   DW_AT_prototyped  : 1
+    <ed>   DW_AT_type        : <0x2a>
+    <f1>   DW_AT_external    : 1
+ <2><f1>: Abbrev Number: 12 (DW_TAG_formal_parameter)
+    <f2>   DW_AT_location    : 0x0 (location list)
+    <f6>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <fa>   DW_AT_decl_file   : 1
+    <fb>   DW_AT_decl_line   : 28
+    <fc>   DW_AT_type        : <0x147>
+ <2><100>: Abbrev Number: 9 (DW_TAG_variable)
+    <101>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <105>   DW_AT_decl_file   : 1
+    <106>   DW_AT_decl_line   : 30
+    <107>   DW_AT_type        : <0x151>
+ <2><10b>: Abbrev Number: 9 (DW_TAG_variable)
+    <10c>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <110>   DW_AT_decl_file   : 1
+    <111>   DW_AT_decl_line   : 32
+    <112>   DW_AT_type        : <0xc1>
+ <2><116>: Abbrev Number: 13 (DW_TAG_inlined_subroutine)
+    <117>   DW_AT_abstract_origin: <0x7d>
+    <11b>   DW_AT_ranges      : 0x0
+    <11f>   DW_AT_call_file   : 1
+    <120>   DW_AT_call_line   : 32
+ <3><121>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <122>   DW_AT_location    : 0x0 (location list)
+    <126>   DW_AT_abstract_origin: <0x89>
+ <3><12a>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <12b>   DW_AT_location    : 0x0 (location list)
+    <12f>   DW_AT_abstract_origin: <0x94>
+ <3><133>: Abbrev Number: 5 (DW_TAG_formal_parameter)
+    <134>   DW_AT_location    : 0x0 (location list)
+    <138>   DW_AT_abstract_origin: <0x9f>
+ <3><13c>: Abbrev Number: 6 (DW_TAG_variable)
+    <13d>   DW_AT_location    : 0x0 (location list)
+    <141>   DW_AT_abstract_origin: <0xb5>
+ <3><145>: Abbrev Number: 0
+ <2><146>: Abbrev Number: 0
+ <1><147>: Abbrev Number: 10 (DW_TAG_pointer_type)
+    <148>   DW_AT_type        : <0x14c>
+ <1><14c>: Abbrev Number: 14 (DW_TAG_const_type)
+    <14d>   DW_AT_type        : <0xc6>
+ <1><151>: Abbrev Number: 15 (DW_TAG_array_type)
+    <152>   DW_AT_type        : <0xc6>
+ <2><156>: Abbrev Number: 16 (DW_TAG_subrange_type)
+    <157>   DW_AT_type        : <0x15d>
+    <15b>   DW_AT_count       : 27
+ <2><15c>: Abbrev Number: 0
+ <1><15d>: Abbrev Number: 17 (DW_TAG_base_type)
+    <15e>   DW_AT_name        : (indirect string, offset: 0x0): clang version 8.0.0 (https://github.com/Sladuca/clang.git 96b26a81f0d600a8f20d5791d9b11604b59fb3c2) (https://github.com/Sladuca/llvm.git 0f7ddc5f319fb905d269325ae842760970df2afb)
+    <162>   DW_AT_byte_size   : 8
+    <163>   DW_AT_encoding    : 7	(unsigned)
+ <1><164>: Abbrev Number: 0
+
+Contents of the .debug_ranges section:
+
+    Offset   Begin    End
+    00000000 0000000000000100 0000000000000178 
+    00000000 0000000000000190 00000000000001c0 
+    00000000 <End of list>
+
+Contents of the .debug_macinfo section:
+
+readelf: Warning: unable to apply unsupported reloc type 1 to section .debug_frame
+readelf: Warning: unable to apply unsupported reloc type 10 to section .debug_frame
+readelf: Warning: unable to apply unsupported reloc type 1 to section .debug_frame
+Contents of the .debug_frame section:
+
+
+00000000 000000000000000c ffffffff CIE
+  Version:               4
+  Augmentation:          ""
+  Pointer Size:          8
+  Segment Size:          0
+  Code alignment factor: 8
+  Data alignment factor: -4
+  Return address column: 11
+
+  DW_CFA_nop
+
+00000010 0000000000000014 00000000 FDE cie=00000000 pc=0000000000000000..00000000000000d0
+
+00000028 0000000000000014 00000000 FDE cie=00000000 pc=0000000000000000..0000000000000100
+
+Raw dump of debug contents of section .debug_line:
+
+  Offset:                      0x0
+  Length:                      166
+  DWARF Version:               4
+  Prologue Length:             38
+  Minimum Instruction Length:  8
+  Maximum Ops per Instruction: 1
+  Initial value of 'is_stmt':  1
+  Line Base:                   -5
+  Line Range:                  14
+  Opcode Base:                 13
+
+ Opcodes:
+  Opcode 1 has 0 args
+  Opcode 2 has 1 arg
+  Opcode 3 has 1 arg
+  Opcode 4 has 1 arg
+  Opcode 5 has 1 arg
+  Opcode 6 has 0 args
+  Opcode 7 has 0 args
+  Opcode 8 has 0 args
+  Opcode 9 has 1 arg
+  Opcode 10 has 0 args
+  Opcode 11 has 0 args
+  Opcode 12 has 1 arg
+
+ The Directory Table is empty.
+
+ The File Name Table (offset 0x1d):
+  Entry	Dir	Time	Size	Name
+  1	0	0	0	binarysearch.c
+
+ Line Number Statements:
+  [0x00000030]  Extended opcode 2: set Address to 0x0
+  [0x0000003b]  Special opcode 9: advance Address by 0 to 0x0 and Line by 4 to 5
+  [0x0000003c]  Set column to 10
+  [0x0000003e]  Set prologue_end to true
+  [0x0000003f]  Special opcode 63: advance Address by 32 to 0x20 and Line by 2 to 7
+  [0x00000040]  Set column to 15
+  [0x00000042]  Set is_stmt to 0
+  [0x00000043]  Special opcode 89: advance Address by 48 to 0x50 and Line by 0 to 7
+  [0x00000044]  Set column to 20
+  [0x00000046]  Special opcode 33: advance Address by 16 to 0x60 and Line by 0 to 7
+  [0x00000047]  Set column to 23
+  [0x00000049]  Special opcode 19: advance Address by 8 to 0x68 and Line by 0 to 7
+  [0x0000004a]  Set column to 7
+  [0x0000004c]  Special opcode 33: advance Address by 16 to 0x78 and Line by 0 to 7
+  [0x0000004d]  Advance Line by -7 to 0
+  [0x0000004f]  Special opcode 19: advance Address by 8 to 0x80 and Line by 0 to 0
+  [0x00000050]  Set is_stmt to 1
+  [0x00000051]  Advance Line by 17 to 17
+  [0x00000053]  Special opcode 33: advance Address by 16 to 0x90 and Line by 0 to 17
+  [0x00000054]  Set is_stmt to 0
+  [0x00000055]  Special opcode 47: advance Address by 24 to 0xa8 and Line by 0 to 17
+  [0x00000056]  Set column to 0
+  [0x00000058]  Advance Line by -17 to 0
+  [0x0000005a]  Special opcode 19: advance Address by 8 to 0xb0 and Line by 0 to 0
+  [0x0000005b]  Set column to 7
+  [0x0000005d]  Set is_stmt to 1
+  [0x0000005e]  Advance Line by 21 to 21
+  [0x00000060]  Special opcode 19: advance Address by 8 to 0xb8 and Line by 0 to 21
+  [0x00000061]  Set column to 1
+  [0x00000063]  Special opcode 24: advance Address by 8 to 0xc0 and Line by 5 to 26
+  [0x00000064]  Set column to 0
+  [0x00000066]  Special opcode 36: advance Address by 16 to 0xd0 and Line by 3 to 29
+  [0x00000067]  Set column to 46
+  [0x00000069]  Set prologue_end to true
+  [0x0000006a]  Special opcode 36: advance Address by 16 to 0xe0 and Line by 3 to 32
+  [0x0000006b]  Set is_stmt to 0
+  [0x0000006c]  Advance Line by -32 to 0
+  [0x0000006e]  Special opcode 19: advance Address by 8 to 0xe8 and Line by 0 to 0
+  [0x0000006f]  Set column to 10
+  [0x00000071]  Set is_stmt to 1
+  [0x00000072]  Special opcode 54: advance Address by 24 to 0x100 and Line by 7 to 7
+  [0x00000073]  Set column to 15
+  [0x00000075]  Set is_stmt to 0
+  [0x00000076]  Special opcode 103: advance Address by 56 to 0x138 and Line by 0 to 7
+  [0x00000077]  Set column to 20
+  [0x00000079]  Special opcode 33: advance Address by 16 to 0x148 and Line by 0 to 7
+  [0x0000007a]  Set column to 23
+  [0x0000007c]  Special opcode 19: advance Address by 8 to 0x150 and Line by 0 to 7
+  [0x0000007d]  Advance Line by -7 to 0
+  [0x0000007f]  Special opcode 47: advance Address by 24 to 0x168 and Line by 0 to 0
+  [0x00000080]  Special opcode 26: advance Address by 8 to 0x170 and Line by 7 to 7
+  [0x00000081]  Set column to 21
+  [0x00000083]  Set is_stmt to 1
+  [0x00000084]  Advance Line by 30 to 37
+  [0x00000086]  Special opcode 19: advance Address by 8 to 0x178 and Line by 0 to 37
+  [0x00000087]  Set column to 7
+  [0x00000089]  Advance Line by -20 to 17
+  [0x0000008b]  Special opcode 47: advance Address by 24 to 0x190 and Line by 0 to 17
+  [0x0000008c]  Set is_stmt to 0
+  [0x0000008d]  Special opcode 47: advance Address by 24 to 0x1a8 and Line by 0 to 17
+  [0x0000008e]  Set column to 0
+  [0x00000090]  Advance Line by -17 to 0
+  [0x00000092]  Special opcode 19: advance Address by 8 to 0x1b0 and Line by 0 to 0
+  [0x00000093]  Set column to 7
+  [0x00000095]  Set is_stmt to 1
+  [0x00000096]  Advance Line by 21 to 21
+  [0x00000098]  Special opcode 19: advance Address by 8 to 0x1b8 and Line by 0 to 21
+  [0x00000099]  Set column to 0
+  [0x0000009b]  Set is_stmt to 0
+  [0x0000009c]  Advance Line by -21 to 0
+  [0x0000009e]  Special opcode 19: advance Address by 8 to 0x1c0 and Line by 0 to 0
+  [0x0000009f]  Set column to 1
+  [0x000000a1]  Set is_stmt to 1
+  [0x000000a2]  Advance Line by 38 to 38
+  [0x000000a4]  Special opcode 19: advance Address by 8 to 0x1c8 and Line by 0 to 38
+  [0x000000a5]  Advance PC by 8 to 0x1d0
+  [0x000000a7]  Extended opcode 1: End of Sequence
+
+
