@@ -236,6 +236,7 @@ impl<E: UserDefinedError, I: 'static + InstructionMeter> dyn Executable<E, I> {
     ) -> Result<Box<Self>, EbpfError<E>> {
         let ebpf_elf = EBpfElf::load(config, elf_bytes)?;
         let (_, bytes) = ebpf_elf.get_text_bytes()?;
+        // println!("bytes: {:#?}", bytes);
         if let Some(verifier) = verifier {
             verifier(bytes)?;
         }
@@ -352,7 +353,6 @@ macro_rules! translate_memory_access {
         }
     };
 }
-
 /// The syscall_context_objects field also stores some metadata in the front, thus the entries are shifted
 pub const SYSCALL_CONTEXT_OBJECTS_OFFSET: usize = 6;
 
@@ -602,12 +602,15 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         req: &mut mpsc::Receiver<VmRequest>,
         breakpoints: &mut BreakpointTable,
         step: &mut bool,
+        reg: &mut [u64],
     ) {
+        use crate::gdb_stub::NUM_REGS;
+
         match request {
             VmRequest::Resume => {}
             VmRequest::Interrupt => {
                 reply.send(VmReply::Interrupt).unwrap();
-                self.check_for_dbg_request(true, reply, req, breakpoints, step);
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
             }
             VmRequest::Step => {
                 *step = true;
@@ -615,25 +618,97 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
             VmRequest::SetBrkpt(addr) => {
                 breakpoints.set_breakpoint(addr);
                 reply.send(VmReply::SetBrkpt).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
             }
             VmRequest::RemoveBrkpt(addr) => {
                 breakpoints.remove_breakpoint(addr);
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
             }
             VmRequest::Offsets => {
                 let res = match self.executable.get_text_bytes() {
                     Ok(text) => {
                         let (text, _) = text;
+                        println!("text: {}", text);
                         VmReply::Offsets(Offsets::Segments {
                             text_seg: text,
                             data_seg: None,
                         })
                     }
-                    Err(_) => VmReply::Err("could not fetch offsets")
+                    Err(_) => VmReply::Err("could not fetch offsets".into()),
                 };
                 reply.send(res).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
+            }
+            VmRequest::ReadMem(addr, len) => {
+                let mut res: Vec<u8> = Vec::new();
+                for i in 0..len {
+                    let vm_addr = ebpf::MM_INPUT_START.wrapping_add(addr as u32 as u64);
+                    match self.memory_mapping.map::<UserError>(
+                        AccessType::Load,
+                        vm_addr,
+                        std::mem::size_of::<u8>() as u64,
+                    ) {
+                        Ok(host_addr) => {
+                            let host_ptr = host_addr as *mut u8;
+                            let data = unsafe { *host_ptr };
+                            res.push(data);
+                        }
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            reply.send(VmReply::Err(e.into())).unwrap();
+                            return;
+                        }
+                    }
+                }
+                reply.send(VmReply::ReadMem(res)).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
+            }
+            VmRequest::WriteMem(addr, len, bytes) => {
+                for i in 0..len {
+                    let vm_addr = addr as u64;
+                    match self.memory_mapping.map::<UserError>(
+                        AccessType::Store,
+                        vm_addr,
+                        std::mem::size_of::<u8>() as u64,
+                    ) {
+                        Ok(host_addr) => {
+                            let host_ptr = host_addr as *mut u8;
+                            unsafe { *host_ptr = bytes[i as usize] };
+                        }
+                        Err(e) => {
+                            eprintln!("{}", e);
+                            reply.send(VmReply::Err(e.into())).unwrap();
+                            return;
+                        }
+                    }
+                }
+                reply.send(VmReply::WriteMem).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
+            }
+            VmRequest::ReadReg(reg_num) => {
+                let res = reg[reg_num as usize];
+                reply.send(VmReply::ReadReg(res)).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
+            }
+            VmRequest::ReadRegs => {
+                let mut regs: [u64; NUM_REGS] = std::default::Default::default();
+                regs.copy_from_slice(reg);
+                reply.send(VmReply::ReadRegs(regs)).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
+            }
+            VmRequest::WriteReg(reg_num, val) => {
+                reg[reg_num as usize] = val;
+                reply.send(VmReply::WriteReg).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
+            }
+            VmRequest::WriteRegs(vals) => {
+                reg.copy_from_slice(&vals);
+                reply.send(VmReply::WriteRegs).unwrap();
+                self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
             }
             _ => {
-                reply.send(VmReply::Err("unimplemented")).unwrap();
+                reply.send(VmReply::Err("unimplemented".into())).unwrap();
+                panic!("unimplemented VmRequest!");
             }
         }
     }
@@ -647,19 +722,20 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         req: &mut mpsc::Receiver<VmRequest>,
         breakpoints: &mut BreakpointTable,
         step: &mut bool,
+        reg: &mut [u64],
     ) {
-
         if block {
             if let Ok(request) = req.recv() {
-                self.handle_dbg_request(request, reply, req, breakpoints, step);
+                println!("vm: {:?}", request);
+                self.handle_dbg_request(request, reply, req, breakpoints, step, reg);
             } else {
                 eprintln!("debugger detatched from VM");
                 std::process::exit(1);
             }
         } else {
             match req.try_recv() {
-                Ok(request) => self.handle_dbg_request(request, reply, req, breakpoints, step),
-                Err(mpsc::TryRecvError::Empty) => {},
+                Ok(request) => self.handle_dbg_request(request, reply, req, breakpoints, step, reg),
+                Err(mpsc::TryRecvError::Empty) => {}
                 Err(mpsc::TryRecvError::Disconnected) => {
                     eprintln!("debugger detatched from VM");
                     std::process::exit(1);
@@ -692,30 +768,44 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
 
         #[cfg(feature = "debug")]
         let mut dbg_interface = (start_debug_server(10000, &reg, next_pc as u64), BreakpointTable::new());
+        println!("debug server started");
 
         #[cfg(feature = "debug")]
         let mut step = false;
+        #[cfg(feature = "debug")]
+        let mut first_insn = true;
+
+        #[cfg(feature = "debug")]
+        {
+            let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
+        }
 
         let mut remaining_insn_count = if instruction_meter_enabled { instruction_meter.get_remaining() } else { 0 };
         let initial_insn_count = remaining_insn_count;
         self.last_insn_count = 0;
         while next_pc * ebpf::INSN_SIZE + ebpf::INSN_SIZE <= self.program.len() {
-            let pc = next_pc;
-
             // TODO make this not use unwrap()
+            println!("pc: {}", next_pc);
             #[cfg(feature = "debug")]
             {
+                let mut pc_changed = false;
                 let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
-                if step {
+                if first_insn {
+                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
+                    first_insn = false;
+                } else if step {
                     step = false;
-                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step);
-                } else if breakpoints.check_breakpoint(pc as u64) {
+                    reply.send(VmReply::DoneStep).unwrap();
+                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
+                } else if breakpoints.check_breakpoint(next_pc as u64) {
                     reply.send(VmReply::Breakpoint).unwrap();
-                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step);
+                    self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
                 } else {
-                    self.check_for_dbg_request(false, reply, req, breakpoints, &mut step);
+                    self.check_for_dbg_request(false, reply, req, breakpoints, &mut step, &mut reg);
                 }
             }
+
+            let pc = next_pc;
 
             next_pc += 1;
             let insn = ebpf::get_insn_unchecked(self.program, pc);
@@ -1039,8 +1129,9 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         // TODO make this not use unwrap
         #[cfg(feature = "debug")]
         {
-            let ((ref mut reply, _), _) = dbg_interface;
+            let ((ref mut reply, ref mut req), ref mut breakpoints) = dbg_interface;
             reply.send(VmReply::Halted).unwrap();
+            self.check_for_dbg_request(true, reply, req, breakpoints, &mut step, &mut reg);
         }
 
 

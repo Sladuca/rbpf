@@ -16,17 +16,16 @@ use gdbstub::{
 };
 use std::collections::HashSet;
 use std::debug_assert;
+use std::error::Error;
 use std::io::Cursor;
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 
 const BRPKT_MAP_THRESH: usize = 30;
 
-const NUM_REGS: usize = 11;
-const NUM_REGS_WITH_PC: usize = 12;
-const REG_SIZE: usize = 8;
-const REG_NUM_BYTES: usize = NUM_REGS * REG_SIZE;
-const REG_WITH_PC_NUM_BYTES: usize = NUM_REGS * REG_SIZE;
+pub const NUM_REGS: usize = 11;
+pub const REG_SIZE: usize = 8;
+pub const REG_NUM_BYTES: usize = NUM_REGS * REG_SIZE;
 
 // TODO make this not use unwrap
 // TODO add support for Unix Domain Sockets
@@ -60,6 +59,7 @@ pub fn start_debug_server(
         }
     });
 
+    std::thread::sleep(std::time::Duration::from_millis(100));
     (tx, rx)
 }
 
@@ -147,19 +147,17 @@ pub struct DebugServer {
 
 impl DebugServer {
     fn new(
-        regs: &[u64; 11],
+        regs: &[u64; NUM_REGS],
         pc: u64,
     ) -> (Self, mpsc::SyncSender<VmReply>, mpsc::Receiver<VmRequest>) {
+        println!("hi");
         let (req_tx, req_rx) = mpsc::sync_channel::<VmRequest>(0);
         let (reply_tx, reply_rx) = mpsc::sync_channel::<VmReply>(0);
         (
             DebugServer {
                 req: req_tx,
                 reply: reply_rx,
-                regs: BPFRegs {
-                    regs: *regs,
-                    pc: pc,
-                },
+                regs: BPFRegs { regs: *regs },
             },
             reply_tx,
             req_rx,
@@ -168,17 +166,18 @@ impl DebugServer {
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
-#[repr(C)]
 pub struct BPFRegs {
-    regs: [u64; 11],
-    pc: u64,
+    regs: [u64; NUM_REGS],
 }
 
-// TODO use something safer than transmute_copy
 impl Registers for BPFRegs {
     fn gdb_serialize(&self, mut write_byte: impl FnMut(Option<u8>)) {
-        let bytes: [u8; REG_WITH_PC_NUM_BYTES] = unsafe { std::mem::transmute_copy(self) };
-        bytes.iter().for_each(|b| write_byte(Some(*b)));
+        for i in 0..NUM_REGS {
+            let bytes = self.regs[i].to_le_bytes();
+            for b in bytes.iter() {
+                write_byte(Some(*b));
+            }
+        }
     }
 
     fn gdb_deserialize(&mut self, bytes: &[u8]) -> Result<(), ()> {
@@ -191,13 +190,7 @@ impl Registers for BPFRegs {
                 return Err(());
             }
         }
-        if let Ok(u) = rdr.read_u64::<LittleEndian>() {
-            acc.pc = u;
-            *self = acc;
-            Ok(())
-        } else {
-            Err(())
-        }
+        Ok(())
     }
 }
 
@@ -205,8 +198,8 @@ impl Registers for BPFRegs {
 pub struct BPFRegId(u8);
 impl RegId for BPFRegId {
     fn from_raw_id(id: usize) -> Option<(Self, usize)> {
-        if id < 13 {
-            Some((BPFRegId(id as u8), 64))
+        if id < NUM_REGS {
+            Some((BPFRegId(id as u8), 8))
         } else {
             None
         }
@@ -231,11 +224,15 @@ impl Arch for BPFArch {
     type Usize = u64;
     type Registers = BPFRegs;
     type RegId = BPFRegId;
+
+    fn target_description_xml() -> Option<&'static str> {
+        Some(r#"<target version="1.0"><architecture>bpf-unknown-none</architecture></target>"#)
+    }
 }
 
 impl Target for DebugServer {
     type Arch = BPFArch;
-    type Error = &'static str;
+    type Error = Box<dyn Error>;
 
     fn base_ops(&mut self) -> BaseOps<Self::Arch, Self::Error> {
         BaseOps::SingleThread(self)
@@ -250,6 +247,7 @@ impl Target for DebugServer {
     }
 }
 
+#[derive(Debug)]
 pub enum VmRequest {
     Resume,
     Interrupt,
@@ -257,7 +255,7 @@ pub enum VmRequest {
     ReadReg(u8),
     ReadRegs,
     WriteReg(u8, u64),
-    WriteRegs([u64; 12]),
+    WriteRegs([u64; NUM_REGS]),
     ReadMem(u64, u64),
     WriteMem(u64, u64, Vec<u8>),
     SetBrkpt(u64),
@@ -271,8 +269,8 @@ pub enum VmReply {
     Interrupt,
     Halted,
     Breakpoint,
-    Err(&'static str),
-    ReadRegs([u64; 12]),
+    Err(Box<dyn Error + Send + Sync>),
+    ReadRegs([u64; NUM_REGS]),
     ReadReg(u64),
     WriteRegs,
     WriteReg,
@@ -290,12 +288,13 @@ impl SingleThreadOps for DebugServer {
         action: ResumeAction,
         check_gdb_interrupt: &mut dyn FnMut() -> bool,
     ) -> Result<StopReason<u64>, Self::Error> {
+        println!("resume");
         match action {
             ResumeAction::Step => {
                 self.req.send(VmRequest::Step).unwrap();
                 match self.reply.recv().unwrap() {
                     VmReply::DoneStep => Ok(StopReason::DoneStep),
-                    _ => Err("unexpected  from VM"),
+                    _ => Err("unexpected reply from VM".into()),
                 }
             }
             ResumeAction::Continue => {
@@ -307,7 +306,7 @@ impl SingleThreadOps for DebugServer {
                             VmReply::Breakpoint => Ok(StopReason::SwBreak),
                             VmReply::Halted => Ok(StopReason::Halted),
                             VmReply::Err(e) => Err(e),
-                            _ => Err("unexpected reply from VM"),
+                            _ => Err("unexpected reply from VM".into()),
                         };
                     }
                 }
@@ -315,7 +314,7 @@ impl SingleThreadOps for DebugServer {
                 match self.reply.recv().unwrap() {
                     VmReply::Interrupt => Ok(StopReason::GdbInterrupt),
                     VmReply::Err(e) => Err(e),
-                    _ => Err("unexpected reply from VM"),
+                    _ => Err("unexpected reply from VM".into()),
                 }
             }
         }
@@ -325,21 +324,21 @@ impl SingleThreadOps for DebugServer {
         self.req.send(VmRequest::ReadRegs).unwrap();
         match self.reply.recv().unwrap() {
             VmReply::ReadRegs(regfile) => {
-                *regs = unsafe { std::mem::transmute_copy(&regfile) };
+                regs.regs = regfile;
                 Ok(())
             }
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 
     fn write_registers(&mut self, regs: &BPFRegs) -> TargetResult<(), Self> {
-        let regfile: [u64; 12] = unsafe { std::mem::transmute_copy(regs) };
+        let regfile: [u64; NUM_REGS] = regs.regs.clone();
         self.req.send(VmRequest::WriteRegs(regfile)).unwrap();
         match self.reply.recv().unwrap() {
             VmReply::WriteRegs => Ok(()),
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 
@@ -351,7 +350,7 @@ impl SingleThreadOps for DebugServer {
                 Ok(())
             }
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 
@@ -365,14 +364,15 @@ impl SingleThreadOps for DebugServer {
                 match self.reply.recv().unwrap() {
                     VmReply::WriteReg => Ok(()),
                     VmReply::Err(e) => Err(TargetError::Fatal(e)),
-                    _ => Err(TargetError::Fatal("unexpected reply from VM")),
+                    _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
                 }
             }
-            _ => Err(TargetError::Fatal("invalid number of bytes")),
+            _ => Err(TargetError::Fatal("invalid number of bytes".into())),
         }
     }
 
     fn read_addrs(&mut self, start_addr: u64, dst: &mut [u8]) -> TargetResult<(), Self> {
+        println!("read address");
         self.req
             .send(VmRequest::ReadMem(start_addr, dst.len() as u64))
             .unwrap();
@@ -386,7 +386,7 @@ impl SingleThreadOps for DebugServer {
                 Ok(())
             }
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 
@@ -401,7 +401,7 @@ impl SingleThreadOps for DebugServer {
         match self.reply.recv().unwrap() {
             VmReply::WriteMem => Ok(()),
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 }
@@ -413,7 +413,7 @@ impl SwBreakpoint for DebugServer {
         match self.reply.recv().unwrap() {
             VmReply::SetBrkpt => Ok(true),
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 
@@ -422,7 +422,7 @@ impl SwBreakpoint for DebugServer {
         match self.reply.recv().unwrap() {
             VmReply::RemoveBrkpt => Ok(true),
             VmReply::Err(e) => Err(TargetError::Fatal(e)),
-            _ => Err(TargetError::Fatal("unexpected reply from VM")),
+            _ => Err(TargetError::Fatal("unexpected reply from VM".into())),
         }
     }
 }
@@ -434,7 +434,7 @@ impl SectionOffsets for DebugServer {
         match self.reply.recv().unwrap() {
             VmReply::Offsets(offsets) => Ok(offsets),
             VmReply::Err(e) => Err(e),
-            _ => Err("unexpected reply from VM"),
+            _ => Err("unexpected reply from VM".into()),
         }
     }
 }
