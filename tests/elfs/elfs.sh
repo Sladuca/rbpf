@@ -40,8 +40,8 @@ rm scratch_registers.o
 rm pass_stack_reference.o
 
 
-# "$LLVM_DIR"clang -Werror -g -target bpf -O2 -fno-builtin -fPIC -v -Xclang -target-feature -Xclang +dwarfris -o binarysearch.o -c binarysearch.c
-"$LLVM_DIR"clang -Werror -g -O2 -fno-builtin -fPIC -v -o binarysearch.o -c binarysearch.c
+"$LLVM_DIR"clang -Werror -g -target bpf -O2 -fno-builtin -fPIC -v -Xclang -target-feature -Xclang +dwarfris -o binarysearch.o -c binarysearch.c
+# "$LLVM_DIR"clang -Werror -g -O2 -fno-builtin -fPIC -v -o binarysearch.o -c binarysearch.c
 # "$LLVM_DIR"clang -Werror -g -target bpf -O2 -fno-builtin -fPIC -v -o binarysearch.o -c binarysearch.c
 # cp binarysearch.o binarysearch.debug
 # "$LLVM_DIR"llvm-objcopy  --only-keep-debug binarysearch.debug
