@@ -13,8 +13,8 @@ c2 00 00 00 // offset in debug_str
 00 00 00 00 00 10 00 00 // addr
 d0 01 00 00 // 4 LSB of hi-pc
   DIE 2: !!
-  00 // end of debug_info!! should be 02, abbrev_index
-  00 00 00 00 // should be 35 00 00 00, compunit offset
+  00 // end of debug_info!! should be 02, abbrev_index for DIE 2
+  00 00 00 00 // should be 35 00 00 00, or whatever compunit offset is
   f3 00 00 00 // offset in debug_str
   01 // offset in debug_line
   02 // offset in debug_line
