@@ -23,16 +23,8 @@ use crate::{
 use log::debug;
 use std::{collections::HashMap, fmt::Debug, u32};
 use crate::gdb_stub::{NUM_REGS, VmReply, VmRequest, BreakpointTable, start_debug_server};
-use gdbstub::target::ext::section_offsets::Offsets;
-use std::sync::mpsc;
-
-#[cfg(feature = "debug")]
-use crate::gdb_stub::{start_debug_server, BreakpointTable, VmReply, VmRequest};
-#[cfg(feature = "debug")]
 use gdbstub::target::ext::base::singlethread::{ResumeAction, SingleThreadOps, StopReason};
-#[cfg(feature = "debug")]
 use gdbstub::target::ext::section_offsets::Offsets;
-#[cfg(feature = "debug")]
 use std::sync::mpsc;
 
 /// eBPF verification function that returns an error if the program does not meet its requirements.
@@ -627,6 +619,7 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
             }
             VmRequest::RemoveBrkpt(addr) => {
                 breakpoints.remove_breakpoint(addr);
+                reply.send(VmReply::RemoveBrkpt).unwrap();
                 self.check_for_dbg_request(true, reply, req, breakpoints, step, reg);
             }
             VmRequest::Offsets => {
@@ -772,7 +765,9 @@ impl<'a, E: UserDefinedError, I: InstructionMeter> EbpfVm<'a, E, I> {
         let mut next_pc: usize = entry;
 
         let mut dbg_interface = if debugger_enabled { Some((start_debug_server(10000, &reg, next_pc as u64), BreakpointTable::new())) } else { None };
-        println!("debug server started");
+        if debugger_enabled {
+            println!("debug server started");
+        }
 
         let mut step = false;
         let mut first_insn = true;

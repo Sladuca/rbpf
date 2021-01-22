@@ -348,6 +348,12 @@ fn main() {
                 .required(true),
         )
         .arg(
+            Arg::new("debug")
+                .about("enable VM's GDB server")
+                .short('d')
+                .long("debug"),
+        )
+        .arg(
             Arg::new("instruction limit")
                 .about("Limit the number of instructions to execute")
                 .short('l')
@@ -371,6 +377,7 @@ fn main() {
         .get_matches();
 
     let mut config = Config::default();
+    config.enable_debugger = matches.is_present("debug");
     config.enable_instruction_tracing =
         matches.is_present("trace") || matches.is_present("profile");
     let mut executable = match matches.value_of("assembler") {

@@ -38,3 +38,7 @@ rm scratch_registers.o
 "$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o pass_stack_reference.o -c pass_stack_reference.c
 "$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -entry entrypoint -o pass_stack_reference.so pass_stack_reference.o
 rm pass_stack_reference.o
+
+"$LLVM_DIR"clang -Werror -target bpf -O2 -fno-builtin -fPIC -o binarysearch.o -c binarysearch.c
+"$LLVM_DIR"ld.lld -z notext -shared --Bdynamic -entry entrypoint -o binarysearch.so binarysearch.o
+rm binarysearch.o
