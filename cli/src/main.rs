@@ -85,7 +85,7 @@ impl AnalysisResult {
         for insn in result.instructions.iter() {
             match insn.opc {
                 ebpf::CALL_IMM => {
-                    if let Some(target_pc) = executable.lookup_bpf_call(insn.imm as u32) {
+                    if let Some(target_pc) = executable.lookup_bpf_function(insn.imm as u32) {
                         // result.sources.insert(insn.ptr, vec![*target_pc]);
                         if !result.destinations.contains_key(target_pc) {
                             result.destinations.insert(*target_pc, Label {
@@ -158,6 +158,11 @@ impl AnalysisResult {
         let mut destination_iter = result.destinations.iter_mut().peekable();
         let mut source_iter = result.sources.iter().peekable();
         while let Some((begin, label)) = destination_iter.next() {
+            if *begin >= result.instructions.last().unwrap().ptr {
+                println!("WARNING: Invalid symbol {:?} at {} beyond last instruction", label.name, begin);
+                label.length = 0;
+                continue;
+            }
             if label.length > 0 {
                 continue;
             }
@@ -194,7 +199,7 @@ impl AnalysisResult {
                 ebpf::CALL_IMM => {
                     insn.desc = if let Some(syscall_name) = syscalls.get(&(insn.imm as u32)) {
                         format!("syscall {}", syscall_name)
-                    } else if let Some(target_pc) = executable.lookup_bpf_call(insn.imm as u32)
+                    } else if let Some(target_pc) = executable.lookup_bpf_function(insn.imm as u32)
                     {
                         format!("call {}", resolve_label!(result.destinations, target_pc))
                     } else {
@@ -263,7 +268,7 @@ impl AnalysisResult {
 
 fn main() {
     let matches = App::new("Solana RBPF CLI")
-        .version("0.2.2")
+        .version("0.2.3")
         .author("Solana Maintainers <maintainers@solana.foundation>")
         .about("CLI to test and analyze eBPF programs")
         .arg(

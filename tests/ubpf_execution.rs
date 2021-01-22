@@ -30,28 +30,28 @@ use test_utils::{
 };
 
 macro_rules! test_interpreter_and_jit {
-    (1, $syscall_registry:expr, $($location:expr => $syscall_function:expr; $syscall_context_object:expr),*) => {
-        $($syscall_registry.register_syscall_by_hash::<UserError, _>($location, $syscall_function).unwrap();)*
+    (register, $executable:expr, $syscall_registry:expr, $location:expr => $syscall_function:expr; $syscall_context_object:expr) => {
+        $syscall_registry.register_syscall_by_hash::<UserError, _>($location, $syscall_function).unwrap();
     };
-    (2, $vm:expr, $($location:expr => $syscall_function:expr; $syscall_context_object:expr),*) => {
-        $($vm.bind_syscall_context_object(Box::new($syscall_context_object), None).unwrap();)*
+    (register, $executable:expr, $syscall_registry:expr, $location:expr => $function_pc:expr) => {
+        $executable.register_bpf_function($location, $function_pc);
     };
-    ( $executable:expr, $mem:tt, ($($location:expr => $syscall_function:expr; $syscall_context_object:expr),* $(,)?), $check:block, $expected_instruction_count:expr ) => {
+    (bind, $vm:expr, $location:expr => $syscall_function:expr; $syscall_context_object:expr) => {
+        $vm.bind_syscall_context_object(Box::new($syscall_context_object), None).unwrap();
+    };
+    (bind, $vm:expr, $location:expr => $function_pc:expr) => {};
+    ($executable:expr, $mem:tt, ($($location:expr => $a:expr $(; $b:expr)?),* $(,)?), $check:block, $expected_instruction_count:expr) => {
         let check_closure = $check;
         let mut syscall_registry = SyscallRegistry::default();
-        test_interpreter_and_jit!(1, syscall_registry, $($location => $syscall_function; $syscall_context_object),*);
+        $(test_interpreter_and_jit!(register, $executable, syscall_registry, $location => $a $(; $b)?);)*
         $executable.set_syscall_registry(syscall_registry);
         let (instruction_count_interpreter, _tracer_interpreter) = {
             let mut mem = $mem;
             let mut vm = EbpfVm::new($executable.as_ref(), &mut mem, &[]).unwrap();
-            test_interpreter_and_jit!(2, vm, $($location => $syscall_function; $syscall_context_object),*);
+            $(test_interpreter_and_jit!(bind, vm, $location => $a $(; $b)?);)*
             let result = vm.execute_program_interpreted(&mut TestInstructionMeter { remaining: $expected_instruction_count });
-            let tracer_interpreter = vm.get_tracer().clone();
-            let mut tracer_display = String::new();
-            tracer_interpreter.write(&mut tracer_display, vm.get_program()).unwrap();
-            println!("{}", tracer_display);
             assert!(check_closure(&vm, result));
-            (vm.get_total_instruction_count(), tracer_interpreter)
+            (vm.get_total_instruction_count(), vm.get_tracer().clone())
         };
         #[cfg(not(windows))]
         {
@@ -62,10 +62,18 @@ macro_rules! test_interpreter_and_jit {
             match compilation_result {
                 Err(err) => assert!(check_closure(&vm, Err(err))),
                 Ok(()) => {
-                    test_interpreter_and_jit!(2, vm, $($location => $syscall_function; $syscall_context_object),*);
+                    $(test_interpreter_and_jit!(bind, vm, $location => $a $(; $b)?);)*
                     let result = vm.execute_program_jit(&mut TestInstructionMeter { remaining: $expected_instruction_count });
                     let tracer_jit = vm.get_tracer();
-                    assert!(solana_rbpf::vm::Tracer::compare(&_tracer_interpreter, tracer_jit));
+                    if !solana_rbpf::vm::Tracer::compare(&_tracer_interpreter, tracer_jit) {
+                        let mut tracer_display = String::new();
+                        _tracer_interpreter.write(&mut tracer_display, vm.get_program()).unwrap();
+                        println!("{}", tracer_display);
+                        let mut tracer_display = String::new();
+                        tracer_jit.write(&mut tracer_display, vm.get_program()).unwrap();
+                        println!("{}", tracer_display);
+                        panic!();
+                    }
                     if $executable.get_config().enable_instruction_meter {
                         let instruction_count_jit = vm.get_total_instruction_count();
                         assert_eq!(instruction_count_interpreter, instruction_count_jit);
@@ -81,7 +89,7 @@ macro_rules! test_interpreter_and_jit {
 }
 
 macro_rules! test_interpreter_and_jit_asm {
-    ( $source:tt, $mem:tt, ($($location:expr => $syscall_function:expr; $syscall_context_object:expr),* $(,)?), $check:block, $expected_instruction_count:expr ) => {
+    ($source:tt, $mem:tt, ($($location:expr => $a:expr $(; $b:expr)?),* $(,)?), $check:block, $expected_instruction_count:expr) => {
         let program = assemble($source).unwrap();
         #[allow(unused_mut)]
         {
@@ -90,13 +98,13 @@ macro_rules! test_interpreter_and_jit_asm {
                 ..Config::default()
             };
             let mut executable = Executable::<UserError, TestInstructionMeter>::from_text_bytes(&program, None, config).unwrap();
-            test_interpreter_and_jit!(executable, $mem, ($($location => $syscall_function; $syscall_context_object),*), $check, $expected_instruction_count);
+            test_interpreter_and_jit!(executable, $mem, ($($location => $a $(; $b)?),*), $check, $expected_instruction_count);
         }
     };
 }
 
 macro_rules! test_interpreter_and_jit_elf {
-    ( $source:tt, $mem:tt, ($($location:expr => $syscall_function:expr; $syscall_context_object:expr),* $(,)?), $check:block, $expected_instruction_count:expr ) => {
+    ($source:tt, $mem:tt, ($($location:expr => $a:expr $(; $b:expr)?),* $(,)?), $check:block, $expected_instruction_count:expr) => {
         let mut file = File::open($source).unwrap();
         let mut elf = Vec::new();
         file.read_to_end(&mut elf).unwrap();
@@ -107,7 +115,7 @@ macro_rules! test_interpreter_and_jit_elf {
                 ..Config::default()
             };
             let mut executable = Executable::<UserError, TestInstructionMeter>::from_elf(&elf, None, config).unwrap();
-            test_interpreter_and_jit!(executable, $mem, ($($location => $syscall_function; $syscall_context_object),*), $check, $expected_instruction_count);
+            test_interpreter_and_jit!(executable, $mem, ($($location => $a $(; $b)?),*), $check, $expected_instruction_count);
         }
     };
 }
@@ -589,6 +597,20 @@ fn test_le16() {
 }
 
 #[test]
+fn test_le16_high() {
+    test_interpreter_and_jit_asm!(
+        "
+        ldxdw r0, [r1]
+        le16 r0
+        exit",
+        [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+        (),
+        { |_vm, res: Result| { res.unwrap() == 0x2211 } },
+        3
+    );
+}
+
+#[test]
 fn test_le32() {
     test_interpreter_and_jit_asm!(
         "
@@ -598,6 +620,20 @@ fn test_le32() {
         [0x44, 0x33, 0x22, 0x11],
         (),
         { |_vm, res: Result| { res.unwrap() == 0x11223344 } },
+        3
+    );
+}
+
+#[test]
+fn test_le32_high() {
+    test_interpreter_and_jit_asm!(
+        "
+        ldxdw r0, [r1]
+        le32 r0
+        exit",
+        [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+        (),
+        { |_vm, res: Result| { res.unwrap() == 0x44332211 } },
         3
     );
 }
@@ -2322,10 +2358,10 @@ fn test_call_reg() {
 }
 
 #[test]
-fn test_err_oob_callx_low() {
+fn test_err_callx_oob_low() {
     test_interpreter_and_jit_asm!(
         "
-        mov64 r0, 0x0
+        mov64 r0, 0x3
         callx 0x0
         exit",
         [],
@@ -2343,11 +2379,12 @@ fn test_err_oob_callx_low() {
 }
 
 #[test]
-fn test_err_oob_callx_high() {
+fn test_err_callx_oob_high() {
     test_interpreter_and_jit_asm!(
         "
         mov64 r0, -0x1
         lsh64 r0, 0x20
+        or64 r0, 0x3
         callx 0x0
         exit",
         [],
@@ -2356,11 +2393,54 @@ fn test_err_oob_callx_high() {
             |_vm, res: Result| {
                 matches!(res.unwrap_err(),
                     EbpfError::CallOutsideTextSegment(pc, target_pc)
-                    if pc == 31 && target_pc == 0xffffffff00000000
+                    if pc == 32 && target_pc == 0xffffffff00000000
                 )
             }
         },
-        3
+        4
+    );
+}
+
+#[test]
+fn test_err_call_lddw() {
+    test_interpreter_and_jit_asm!(
+        "
+        call 2
+        lddw r0, 0x1122334455667788
+        exit",
+        [],
+        (2 => 0x2),
+        {
+            |_vm, res: Result| {
+                matches!(res.unwrap_err(),
+                    EbpfError::UnsupportedInstruction(pc) if pc == 31
+                )
+            }
+        },
+        2
+    );
+}
+
+#[test]
+fn test_err_callx_lddw() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov64 r8, 0x1
+        lsh64 r8, 0x20
+        or64 r8, 40
+        callx 0x8
+        lddw r0, 0x1122334455667788
+        exit",
+        [],
+        (),
+        {
+            |_vm, res: Result| {
+                matches!(res.unwrap_err(),
+                    EbpfError::UnsupportedInstruction(pc) if pc == 34
+                )
+            }
+        },
+        5
     );
 }
 
@@ -2411,9 +2491,7 @@ fn test_err_reg_stack_depth() {
         callx 0x0
         exit",
         [],
-        (
-            hash_symbol_name(b"log") => BpfSyscallString::call; BpfSyscallString {},
-        ),
+        (),
         {
             |_vm, res: Result| {
                 matches!(res.unwrap_err(),
@@ -2684,6 +2762,51 @@ fn test_tight_infinite_loop_unconditional() {
             }
         },
         4
+    );
+}
+
+#[test]
+fn test_tight_infinite_recursion() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov64 r3, 0x41414141
+        call 0
+        exit",
+        [],
+        (0 => 0x0),
+        {
+            |_vm, res: Result| {
+                matches!(res.unwrap_err(),
+                    EbpfError::ExceededMaxInstructions(pc, initial_insn_count)
+                    if pc == 31 && initial_insn_count == 4
+                )
+            }
+        },
+        4
+    );
+}
+
+#[test]
+fn test_tight_infinite_recursion_callx() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov64 r8, 0x1
+        lsh64 r8, 0x20
+        or64 r8, 0x18
+        mov64 r3, 0x41414141
+        callx 8
+        exit",
+        [],
+        (),
+        {
+            |_vm, res: Result| {
+                matches!(res.unwrap_err(),
+                    EbpfError::ExceededMaxInstructions(pc, initial_insn_count)
+                    if pc == 34 && initial_insn_count == 7
+                )
+            }
+        },
+        7
     );
 }
 
